@@ -41,7 +41,7 @@ module.exports.itprofile = function (parent) {
             + '      <div>Dept./Branch: <input type="text" id="itprofDept" style="width:100%;"></div>'
             + '    </div>'
             + '  </div>'
-            + '  <div id="itprofSummary" style="margin-bottom:12px; font-size:13px; line-height:1.5; max-height:480px; overflow-y:auto; overflow-x:hidden;"></div>'
+            + '  <div id="itprofSummary" style="margin-bottom:12px; font-size:13px; line-height:1.5; max-height:250px; overflow-y:auto; overflow-x:hidden;"></div>'
             + '</div>';
 
         QA('pluginItProfile', html);
