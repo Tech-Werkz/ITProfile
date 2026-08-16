@@ -1,0 +1,18 @@
+{
+  "name": "IT Profile",
+  "shortName": "ITProfile",
+  "version": "1.0.17",
+  "author": "HenryTech",
+  "description": "IT Inventory plugin for MeshCentral.",
+  "hasAdminPanel": false,
+  "homepage": "https://github.com/Tech-Werkz/ITProfile",
+  "changelogUrl": "https://raw.githubusercontent.com/Tech-Werkz/ITProfile/main/changelog.md",
+  "configUrl": "https://raw.githubusercontent.com/Tech-Werkz/ITProfile/main/config.json",
+  "downloadUrl": "https://github.com/Tech-Werkz/ITProfile/archive/refs/heads/main.zip",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Tech-Werkz/ITProfile.git"
+  },
+  "versionHistoryUrl": "https://api.github.com/repos/Tech-Werkz/ITProfile/tags",
+  "meshCentralCompat": ">=1.1.54"
+}
