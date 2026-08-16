@@ -115,12 +115,23 @@ module.exports.itprofile = function (parent) {
             ['Motherboard', d.motherboard ? ((d.motherboard.manufacturer || '') + ' ' + (d.motherboard.product || '')) : '', d.motherboard ? (d.motherboard.serialNumber || '') : '', false]
         ];
 
+        // SMBIOS/WMI FormFactor 14 is an SMD (soldered) memory device. Some
+        // systems report the same fact only through their slot/locator label.
+        function getMemoryMountStatus(memoryModule) {
+            var formFactor = memoryModule.formFactor;
+            var formFactorNumber = parseInt(formFactor, 10);
+            var formFactorText = String(formFactor).toLowerCase();
+            var location = [memoryModule.deviceLocator, memoryModule.bankLabel, memoryModule.tag, memoryModule.slot, memoryModule.location].join(' ').toLowerCase();
+            if (formFactorNumber === 14 || formFactorText === 'smd' || formFactorText === 'surface mount' || location.indexOf('onboard') >= 0 || location.indexOf('on-board') >= 0 || location.indexOf('soldered') >= 0 || location.indexOf('embedded') >= 0) return 'Built-in';
+            return 'Removable';
+        }
+
         if (d.memoryModules && d.memoryModules.length) {
             for (var memIdx = 0; memIdx < d.memoryModules.length; memIdx++) {
                 var memoryModule = d.memoryModules[memIdx];
                 rows.push([
                     'Memory (RAM)',
-                    (memoryModule.capacityGB || '?') + 'GB @ ' + (memoryModule.speedMHz || '?') + 'MHz ' + (memoryModule.manufacturer || ''),
+                    (memoryModule.capacityGB || '?') + 'GB @ ' + (memoryModule.speedMHz || '?') + 'MHz ' + (memoryModule.manufacturer || '') + ' (' + getMemoryMountStatus(memoryModule) + ')',
                     memoryModule.serialNumber || '',
                     false
                 ]);
