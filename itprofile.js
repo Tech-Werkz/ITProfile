@@ -106,71 +106,96 @@ module.exports.itprofile = function (parent) {
         }
 
         // ---- Build Computer Hardware Information rows ----
-        var memSpecParts = [], memSerials = [];
-        if (d.memoryModules) {
-            for (var i = 0; i < d.memoryModules.length; i++) {
-                var m = d.memoryModules[i];
-                memSpecParts.push(m.capacityGB + 'GB @ ' + m.speedMHz + 'MHz ' + (m.manufacturer || ''));
-                if (m.serialNumber) memSerials.push(m.serialNumber);
-            }
-        }
-
-        var stoSpecParts = [], stoSerials = [];
-        if (d.storage) {
-            for (var j = 0; j < d.storage.length; j++) {
-                var s = d.storage[j];
-                stoSpecParts.push((s.model || 'Unknown') + ' ' + s.sizeGB + 'GB (' + (s.mediaType || '?') + ', ' + (s.healthStatus || '?') + ')');
-                if (s.serialNumber) stoSerials.push(s.serialNumber);
-            }
-        }
-
-        var vidParts = [];
-        if (d.video) {
-            for (var k = 0; k < d.video.length; k++) {
-                var v = d.video[k];
-                vidParts.push(v.name + (v.vramGB ? (' (' + v.vramGB + 'GB)') : ''));
-            }
-        }
-
-        var monParts = [], monSerials = [];
-        if (d.monitors) {
-            for (var mIdx = 0; mIdx < d.monitors.length; mIdx++) {
-                var mon = d.monitors[mIdx];
-                if (mon.manufacturer || mon.model) monParts.push((mon.manufacturer || '') + ' ' + (mon.model || ''));
-                if (mon.serialNumber) monSerials.push(mon.serialNumber);
-            }
-        }
-
-        var extParts = [], extSerials = [];
-        if (d.externalDrives) {
-            for (var eIdx = 0; eIdx < d.externalDrives.length; eIdx++) {
-                var ext = d.externalDrives[eIdx];
-                extParts.push((ext.model || 'Unknown') + ' ' + ext.sizeGB + 'GB');
-                if (ext.serialNumber) extSerials.push(ext.serialNumber);
-            }
-        }
+        // Each detected physical device receives its own row.
+        // This keeps its serial/property number, acquisition date and cost separate.
 
         var rows = [
             [d.builtType || 'System Unit', (d.manufacturer || '') + ' ' + (d.model || '') + (d.biosVersion ? (' | BIOS ' + d.biosVersion) : ''), d.serialNumber || '', false],
             ['Processor', d.cpu ? (d.cpu.name + ' (' + d.cpu.cores + 'C/' + d.cpu.logicalProcessors + 'T)') : '', '', false],
-            ['Motherboard', d.motherboard ? ((d.motherboard.manufacturer || '') + ' ' + (d.motherboard.product || '')) : '', d.motherboard ? (d.motherboard.serialNumber || '') : '', false],
-            ['Memory (RAM)', (d.memoryTotalGB || '?') + 'GB Total [' + memSpecParts.join(' + ') + ']', memSerials.join(', '), false],
-            ['Storage Device', stoSpecParts.join(' | '), stoSerials.join(', '), false],
-            ['Video Card', vidParts.join(', '), '', false],
-            ['CD / DVD-ROM', joinList(d.optical, 'Not detected'), '', false],
-            ['Keyboard', d.keyboard || 'Not detected', '', false],
-            ['Mouse', d.pointingDevice || 'Not detected', '', false],
-            ['Monitor', monParts.length ? monParts.join(', ') : 'Not detected (needs active display/driver)', monSerials.join(', '), false],
+            ['Motherboard', d.motherboard ? ((d.motherboard.manufacturer || '') + ' ' + (d.motherboard.product || '')) : '', d.motherboard ? (d.motherboard.serialNumber || '') : '', false]
+        ];
+
+        if (d.memoryModules && d.memoryModules.length) {
+            for (var memIdx = 0; memIdx < d.memoryModules.length; memIdx++) {
+                var memoryModule = d.memoryModules[memIdx];
+                rows.push([
+                    'Memory (RAM)',
+                    (memoryModule.capacityGB || '?') + 'GB @ ' + (memoryModule.speedMHz || '?') + 'MHz ' + (memoryModule.manufacturer || ''),
+                    memoryModule.serialNumber || '',
+                    false
+                ]);
+            }
+        } else {
+            rows.push(['Memory (RAM)', (d.memoryTotalGB || '?') + 'GB Total', '', false]);
+        }
+
+        if (d.storage && d.storage.length) {
+            for (var storageIdx = 0; storageIdx < d.storage.length; storageIdx++) {
+                var storageDevice = d.storage[storageIdx];
+                rows.push([
+                    'Storage Device',
+                    (storageDevice.model || 'Unknown') + ' ' + (storageDevice.sizeGB || '?') + 'GB (' + (storageDevice.mediaType || '?') + ', ' + (storageDevice.healthStatus || '?') + ')',
+                    storageDevice.serialNumber || '',
+                    false
+                ]);
+            }
+        } else {
+            rows.push(['Storage Device', 'Not detected', '', false]);
+        }
+
+        function addDetectedRows(component, devices, noDeviceText, specification, serialNumber) {
+            var deviceList, deviceIdx, device;
+            if (!devices || devices.length === 0) {
+                rows.push([component, noDeviceText, '', false]);
+                return;
+            }
+            deviceList = Object.prototype.toString.call(devices) === '[object Array]' ? devices : [devices];
+            for (deviceIdx = 0; deviceIdx < deviceList.length; deviceIdx++) {
+                device = deviceList[deviceIdx];
+                rows.push([component, specification(device), serialNumber ? serialNumber(device) : '', false]);
+            }
+        }
+
+        addDetectedRows('Video Card', d.video, 'Not detected', function (video) {
+            return (video.name || 'Unknown') + (video.vramGB ? (' (' + video.vramGB + 'GB)') : '');
+        });
+        addDetectedRows('CD / DVD-ROM', d.optical, 'Not detected', function (opticalDrive) {
+            return opticalDrive || 'Unknown';
+        });
+        addDetectedRows('Keyboard', d.keyboard, 'Not detected', function (keyboard) {
+            return keyboard || 'Unknown';
+        });
+        addDetectedRows('Mouse', d.pointingDevice, 'Not detected', function (pointingDevice) {
+            return pointingDevice || 'Unknown';
+        });
+        addDetectedRows('Monitor', d.monitors, 'Not detected (needs active display/driver)', function (monitor) {
+            return (monitor.manufacturer || '') + ' ' + (monitor.model || '');
+        }, function (monitor) {
+            return monitor.serialNumber || '';
+        });
+
+        rows = rows.concat([
             ['UPS', '', '', true],
             ['AVR / AVS', '', '', true],
-            ['Printer/s', joinList(d.printers, 'None detected'), '', false],
             ['Document Scanner', '', '', true],
             ['Barcode Scanner', '', '', true],
-            ['Cash Drawer', '', '', true],
-            ['External / Flash Drive', extParts.length ? extParts.join(', ') : 'None connected at scan time', extSerials.join(', '), false],
-            ['Webcam', joinList(d.webcam, 'Not detected'), '', false],
-            ['Speaker / Headset', joinList(d.audioDevices, 'Not detected'), '', false]
-        ];
+            ['Cash Drawer', '', '', true]
+        ]);
+
+        addDetectedRows('Printer/s', d.printers, 'None detected', function (printer) {
+            return printer || 'Unknown';
+        });
+        addDetectedRows('External / Flash Drive', d.externalDrives, 'None connected at scan time', function (externalDrive) {
+            return (externalDrive.model || 'Unknown') + ' ' + (externalDrive.sizeGB || '?') + 'GB';
+        }, function (externalDrive) {
+            return externalDrive.serialNumber || '';
+        });
+        addDetectedRows('Webcam', d.webcam, 'Not detected', function (webcam) {
+            return webcam || 'Unknown';
+        });
+        addDetectedRows('Speaker / Headset', d.audioDevices, 'Not detected', function (audioDevice) {
+            return audioDevice || 'Unknown';
+        });
 
         var hwRowsHtml = '';
         for (var r = 0; r < rows.length; r++) {
