@@ -16,18 +16,19 @@ It is intended for device profiling, asset documentation, and handover records. 
 2. Navigate to **My Server** -> **Plugins**.
 3. Click the **Download Plugin** button.
 4. Paste the raw URL of the `config.json` file from this repository:
-[https://raw.githubusercontent.com/Tech-Werkz/ITProfile/refs/heads/main/config.json](https://raw.githubusercontent.com/Tech-Werkz/ITProfile/refs/heads/main/config.json)
+   
+    [https://raw.githubusercontent.com/Tech-Werkz/ITProfile/refs/heads/main/config.json](https://raw.githubusercontent.com/Tech-Werkz/ITProfile/refs/heads/main/config.json)
 
-5. Click **OK** to install.
-6. Make sure the plugin is enabled (Green checkmark under the "Status" column).
-7. **Important Server Restart:** You must restart the MeshCentral service to load the new UI components. Connect via SSH or terminal to your server and run:
+6. Click **OK** to install.
+7. Make sure the plugin is enabled (Green checkmark under the "Status" column).
+8. **Important Server Restart:** You must restart the MeshCentral service to load the new UI components. Connect via SSH or terminal to your server and run:
 
     systemctl restart meshcentral
    ```text
    meshcentral-data/plugins/ITProfile/
    ```
 
-8. Preserve the included directory structure:
+9. Preserve the included directory structure:
 
    ```text
    ITProfile/
@@ -37,8 +38,8 @@ It is intended for device profiling, asset documentation, and handover records. 
        └── itprofile.js
    ```
 
-9. Restart MeshCentral.
-10. Open a Windows device, select the **IT Profile** tab, and choose **Scan Device**.
+10. Restart MeshCentral.
+11. Open a Windows device, select the **IT Profile** tab, and choose **Scan Device**.
 
 > When updating the plugin, replace both `itprofile.js` files, restart MeshCentral, and run a new scan. The root file renders the tab; `modules_meshcore/itprofile.js` collects endpoint data.
 
