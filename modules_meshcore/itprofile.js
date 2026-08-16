@@ -173,10 +173,12 @@ function doGetInventory(sessionid, nodeid) {
 
     "$cpu = Get-CimInstance Win32_Processor | Select-Object -First 1; " +
 
-    "$memModules = @(Get-CimInstance Win32_PhysicalMemory | ForEach-Object { [PSCustomObject]@{ capacityGB = [math]::Round($_.Capacity/1GB,2); speedMHz = $_.Speed; manufacturer = ($_.Manufacturer -as [string]).Trim(); partNumber = ($_.PartNumber -as [string]).Trim(); serialNumber = ($_.SerialNumber -as [string]).Trim(); bankLabel = $_.BankLabel } }); " +
+    "$cleanSerial = { param($value) $serial = ($value -as [string]).Trim(); if (-not $serial -or $serial -match '^(?i:0+|N/?A|UNKNOWN|NONE|DEFAULT STRING|TO BE FILLED BY O\\.E\\.M\\.)$') { return $null }; return $serial }; " +
+    "$memModules = @(Get-CimInstance Win32_PhysicalMemory | ForEach-Object { [PSCustomObject]@{ capacityGB = [math]::Round($_.Capacity/1GB,2); speedMHz = $_.Speed; manufacturer = ($_.Manufacturer -as [string]).Trim(); partNumber = ($_.PartNumber -as [string]).Trim(); serialNumber = & $cleanSerial $_.SerialNumber; bankLabel = $_.BankLabel; deviceLocator = $_.DeviceLocator; tag = $_.Tag; formFactor = $_.FormFactor } }); " +
     "$memTotalGB = if ($os -and $os.TotalVisibleMemorySize) { [math]::Round(($os.TotalVisibleMemorySize/1MB),2) } else { $null }; " +
 
-    "$storage = @(Get-PhysicalDisk | ForEach-Object { [PSCustomObject]@{ model = $_.FriendlyName; sizeGB = [math]::Round($_.Size/1GB,2); serialNumber = ($_.SerialNumber -as [string]).Trim(); mediaType = $_.MediaType; busType = $_.BusType; healthStatus = $_.HealthStatus } }); " +
+    "$diskDriveSerials = @{}; try { Get-CimInstance Win32_DiskDrive | ForEach-Object { $diskSerial = & $cleanSerial $_.SerialNumber; if ($diskSerial) { $diskDriveSerials[[string]$_.Index] = $diskSerial } } } catch {} ; " +
+    "$storage = @(Get-PhysicalDisk | ForEach-Object { $physicalDiskSerial = & $cleanSerial $_.SerialNumber; $serial = if ($_.BusType -eq 'NVMe' -or -not $diskDriveSerials.ContainsKey([string]$_.DeviceId)) { $physicalDiskSerial } else { $diskDriveSerials[[string]$_.DeviceId] }; [PSCustomObject]@{ model = $_.FriendlyName; sizeGB = [math]::Round($_.Size/1GB,2); serialNumber = $serial; mediaType = $_.MediaType; busType = $_.BusType; healthStatus = $_.HealthStatus } }); " +
 
     "$video = @(Get-CimInstance Win32_VideoController | ForEach-Object { [PSCustomObject]@{ name = $_.Name; vramGB = if ($_.AdapterRAM) { [math]::Round($_.AdapterRAM/1GB,2) } else { $null } } }); " +
 
@@ -191,7 +193,7 @@ function doGetInventory(sessionid, nodeid) {
     "$printers = @(Get-CimInstance Win32_Printer | ForEach-Object { $_.Name }); " +
 
     "$externalDrives = @(); " +
-    "try { Get-Disk | Where-Object { $_.BusType -eq 'USB' } | ForEach-Object { $externalDrives += [PSCustomObject]@{ model = $_.FriendlyName; sizeGB = [math]::Round($_.Size/1GB,2); serialNumber = ($_.SerialNumber -as [string]).Trim() } } } catch {} ; " +
+    "try { Get-Disk | Where-Object { $_.BusType -eq 'USB' } | ForEach-Object { $externalDrives += [PSCustomObject]@{ model = $_.FriendlyName; sizeGB = [math]::Round($_.Size/1GB,2); serialNumber = & $cleanSerial $_.SerialNumber } } } catch {} ; " +
 
     "$webcam = @(Get-CimInstance Win32_PnPEntity | Where-Object { $_.Name -match 'camera|webcam' } | ForEach-Object { $_.Name } | Select-Object -Unique); " +
     "$audioDevices = @(Get-CimInstance Win32_SoundDevice | ForEach-Object { $_.Name }); " +
@@ -204,9 +206,10 @@ function doGetInventory(sessionid, nodeid) {
     "try { $sls = Get-CimInstance -Query 'SELECT * FROM SoftwareLicensingService' -ErrorAction Stop; $productKey = $sls.OA3xOriginalProductKey } catch {} ; " +
     "if (-not $productKey) { $productKey = 'Not retrievable - check Settings > Activation' } ; " +
 
+    "$physicalAdapters = @(Get-NetAdapter -Physical -ErrorAction SilentlyContinue); $hasWifi = @($physicalAdapters | Where-Object { $_.NdisPhysicalMedium -eq 9 -or $_.Name -match 'wi-?fi|wireless' -or $_.InterfaceDescription -match 'wi-?fi|wireless' }).Count -gt 0; $hasLan = @($physicalAdapters | Where-Object { ($_.MediaType -eq '802.3' -or $_.NdisPhysicalMedium -eq 14) -and $_.Name -notmatch 'wi-?fi|wireless' -and $_.InterfaceDescription -notmatch 'wi-?fi|wireless' }).Count -gt 0; $connectionTypes = @(); if ($hasWifi) { $connectionTypes += 'WiFi' }; if ($hasLan) { $connectionTypes += 'LAN' }; $connType = if ($connectionTypes.Count) { $connectionTypes -join ' / ' } else { 'Not detected' }; " +
     "$activeAdapter = Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne $null -and $_.NetAdapter.Status -eq 'Up' } | Select-Object -First 1; " +
-    "$ipv4 = $null; $gateway = $null; $dns = $null; $subnet = $null; $connType = 'Unknown'; " +
-    "if ($activeAdapter) { $ipv4 = ($activeAdapter.IPv4Address | Select-Object -First 1).IPAddress; $gateway = ($activeAdapter.IPv4DefaultGateway | Select-Object -First 1).NextHop; $dns = ($activeAdapter.DNSServer | Where-Object { $_.AddressFamily -eq 2 } | Select-Object -First 1).ServerAddresses -join ', '; $prefixLen = ($activeAdapter.IPv4Address | Select-Object -First 1).PrefixLength; if ($prefixLen) { $subnet = ([System.Net.IPAddress]([math]::Pow(2,32) - [math]::Pow(2,32-$prefixLen))).IPAddressToString } ; $connType = $activeAdapter.NetAdapter.MediaType } ; " +
+    "$ipv4 = $null; $gateway = $null; $dns = $null; $subnet = $null; " +
+    "if ($activeAdapter) { $ipv4 = ($activeAdapter.IPv4Address | Select-Object -First 1).IPAddress; $gateway = ($activeAdapter.IPv4DefaultGateway | Select-Object -First 1).NextHop; $dns = ($activeAdapter.DNSServer | Where-Object { $_.AddressFamily -eq 2 } | Select-Object -First 1).ServerAddresses -join ', '; $prefixLen = ($activeAdapter.IPv4Address | Select-Object -First 1).PrefixLength; if ($prefixLen) { $subnet = ([System.Net.IPAddress]([math]::Pow(2,32) - [math]::Pow(2,32-$prefixLen))).IPAddressToString } } ; " +
 
     "$loginName = if ($cs) { $cs.UserName } else { $null }; " +
     "if (-not $loginName) { $loginName = $env:USERNAME } ; " +
