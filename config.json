@@ -1,7 +1,7 @@
 {
   "name": "IT Profile",
   "shortName": "itprofile",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "HenryTech",
   "description": "IT Inventory plugin.",
   "hasAdminPanel": false,
