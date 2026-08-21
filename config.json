@@ -3,7 +3,7 @@
   "shortName": "itprofile",
   "version": "1.0.1",
   "author": "HenryTech",
-  "description": "IT Inventory plugin for MeshCentral.",
+  "description": "IT Inventory plugin.",
   "hasAdminPanel": false,
   "homepage": "https://github.com/Tech-Werkz/ITProfile",
   "changelogUrl": "https://raw.githubusercontent.com/Tech-Werkz/ITProfile/main/changelog.md",
