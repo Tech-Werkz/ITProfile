@@ -47,35 +47,162 @@ module.exports.itprofile = function (parent) {
         QA('pluginItProfile', html);
 
         var btn = document.getElementById('itprofRefreshBtn');
-        if (btn) {
-            btn.onclick = function () {
-                if (typeof currentNode === 'undefined' || !currentNode || !currentNode._id) {
-                    if (pluginHandler.itprofile && pluginHandler.itprofile.loadInventoryError) {
-                        pluginHandler.itprofile.loadInventoryError(null, { message: 'No device selected.' });
-                    }
-                    return;
-                }
+// ==========================================
+// Production-safe Scan Device button handler
+// Uses event delegation because MeshCentral may
+// render/re-render the plugin tab asynchronously.
+// ==========================================
+if (!document._itprofileRefreshHandlerInstalled) {
 
-                QH('itprofSummary', '');
-                QH('itprofStatus', 'Scanning endpoint for inventory data... (first run may take longer while WMI/CIM queries complete.)');
-                var pBtn = document.getElementById('itprofPrintBtn');
-                if (pBtn) pBtn.disabled = true;
+    document._itprofileRefreshHandlerInstalled = true;
 
-                try {
-                    if (typeof meshserver !== 'undefined' && meshserver != null) {
-                        meshserver.send({ action: 'plugin', plugin: 'itprofile', pluginaction: 'getInventory', nodeid: currentNode._id });
-                    } else if (typeof server !== 'undefined' && server != null) {
-                        server.send({ action: 'plugin', plugin: 'itprofile', pluginaction: 'getInventory', nodeid: currentNode._id });
-                    } else {
-                        throw new Error("WebSocket object not found.");
-                    }
-                } catch (err) {
-                    if (pluginHandler.itprofile && pluginHandler.itprofile.loadInventoryError) {
-                        pluginHandler.itprofile.loadInventoryError(null, { message: 'WebSocket Error: ' + err.message });
-                    }
-                }
-            };
+    document.addEventListener('click', function (event) {
+
+        event = event || window.event;
+
+        var target = event.target || event.srcElement;
+
+        if (!target) return;
+
+        // Handle clicks on the button itself
+        // or on an element inside the button.
+        var scanButton = target;
+
+        while (scanButton && scanButton !== document) {
+
+            if (scanButton.id === 'itprofRefreshBtn') {
+                break;
+            }
+
+            scanButton = scanButton.parentNode;
         }
+
+        if (!scanButton || scanButton === document) return;
+
+        if (event.preventDefault) {
+            event.preventDefault();
+        }
+
+        // Make sure we still have a selected device.
+        if (typeof currentNode === 'undefined' ||
+            !currentNode ||
+            !currentNode._id) {
+
+            if (pluginHandler.itprofile &&
+                pluginHandler.itprofile.loadInventoryError) {
+
+                pluginHandler.itprofile.loadInventoryError(
+                    null,
+                    {
+                        message: 'No device selected.'
+                    }
+                );
+            }
+
+            return;
+        }
+
+        var summary = document.getElementById('itprofSummary');
+        var status = document.getElementById('itprofStatus');
+        var printButton = document.getElementById('itprofPrintBtn');
+
+        if (summary) {
+            QH('itprofSummary', '');
+        }
+
+        if (status) {
+            QH(
+                'itprofStatus',
+                'Scanning endpoint for inventory data... ' +
+                '(first run may take longer while WMI/CIM queries complete.)'
+            );
+        }
+
+        if (printButton) {
+            printButton.disabled = true;
+        }
+
+        // Prevent accidental double-click scans.
+        scanButton.disabled = true;
+
+        try {
+
+            var request = {
+                action: 'plugin',
+                plugin: 'itprofile',
+                pluginaction: 'getInventory',
+                nodeid: currentNode._id
+            };
+
+            // MeshCentral normally exposes meshserver.
+            if (typeof meshserver !== 'undefined' &&
+                meshserver !== null &&
+                typeof meshserver.send === 'function') {
+
+                if (status) {
+                    QH(
+                        'itprofStatus',
+                        'Sending inventory request to MeshCentral server...'
+                    );
+                }
+
+                meshserver.send(request);
+
+            // Compatibility fallback.
+            } else if (typeof server !== 'undefined' &&
+                       server !== null &&
+                       typeof server.send === 'function') {
+
+                if (status) {
+                    QH(
+                        'itprofStatus',
+                        'Sending inventory request to MeshCentral server...'
+                    );
+                }
+
+                server.send(request);
+
+            } else {
+
+                throw new Error(
+                    'MeshCentral WebSocket object not found.'
+                );
+            }
+
+        } catch (err) {
+
+            scanButton.disabled = false;
+
+            if (pluginHandler.itprofile &&
+                pluginHandler.itprofile.loadInventoryError) {
+
+                pluginHandler.itprofile.loadInventoryError(
+                    null,
+                    {
+                        message: 'WebSocket Error: ' +
+                            (err && err.message ?
+                                err.message :
+                                String(err))
+                    }
+                );
+            }
+
+            return;
+        }
+
+        // Re-enable after a short delay.
+        // The button can still be clicked again once
+        // the previous request has been sent.
+        setTimeout(function () {
+
+            if (scanButton) {
+                scanButton.disabled = false;
+            }
+
+        }, 1000);
+
+    }, false);
+}
     };
 
     obj.loadInventoryData = function (serverObj, msg) {
@@ -459,27 +586,55 @@ module.exports.itprofile = function (parent) {
         switch (command.pluginaction) {
 
             case 'getInventory':
-                var agent = obj.meshServer.webserver.wsagents[command.nodeid];
-                if (agent != null) {
-                    agent.send(JSON.stringify({
-                        action: 'plugin',
-                        plugin: 'itprofile',
-                        pluginaction: 'getInventory',
-                        sessionid: currentSessionid,
-                        nodeid: command.nodeid
-                    }));
-                } else {
-                    if (currentSessionid && obj.meshServer.webserver.wssessions2 && obj.meshServer.webserver.wssessions2[currentSessionid]) {
-                        obj.meshServer.webserver.wssessions2[currentSessionid].send(JSON.stringify({
-                            action: 'plugin',
-                            plugin: 'itprofile',
-                            method: 'loadInventoryError',
-                            message: 'Agent is offline or disconnected.',
-                            nodeid: command.nodeid
-                        }));
-                    }
-                }
-                break;
+
+    console.log(
+        '[IT Profile] getInventory request received. Node:',
+        command.nodeid,
+        'Session:',
+        currentSessionid
+    );
+
+    var agent = obj.meshServer.webserver.wsagents[command.nodeid];
+
+    if (agent != null) {
+
+        console.log(
+            '[IT Profile] Sending inventory request to agent:',
+            command.nodeid
+        );
+
+        agent.send(JSON.stringify({
+            action: 'plugin',
+            plugin: 'itprofile',
+            pluginaction: 'getInventory',
+            sessionid: currentSessionid,
+            nodeid: command.nodeid
+        }));
+
+    } else {
+
+        console.log(
+            '[IT Profile] Agent not connected:',
+            command.nodeid
+        );
+
+        if (currentSessionid &&
+            obj.meshServer.webserver.wssessions2 &&
+            obj.meshServer.webserver.wssessions2[currentSessionid]) {
+
+            obj.meshServer.webserver.wssessions2[currentSessionid].send(
+                JSON.stringify({
+                    action: 'plugin',
+                    plugin: 'itprofile',
+                    method: 'loadInventoryError',
+                    message: 'Agent is offline or disconnected.',
+                    nodeid: command.nodeid
+                })
+            );
+        }
+    }
+
+    break;
 
             case 'inventoryData':
             case 'inventoryError':
