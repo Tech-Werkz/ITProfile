@@ -49,7 +49,7 @@ module.exports.itprofile = function (parent) {
         var btn = document.getElementById('itprofRefreshBtn');
 // ==========================================
 // Production-safe Scan Device button handler
-// Uses event delegation because MeshCentral may
+// Uses event delegation because Server may
 // render/re-render the plugin tab asynchronously.
 // ==========================================
 if (!document._itprofileRefreshHandlerInstalled) {
@@ -134,7 +134,7 @@ if (!document._itprofileRefreshHandlerInstalled) {
                 nodeid: currentNode._id
             };
 
-            // MeshCentral normally exposes meshserver.
+            // Server normally exposes meshserver.
             if (typeof meshserver !== 'undefined' &&
                 meshserver !== null &&
                 typeof meshserver.send === 'function') {
@@ -142,7 +142,7 @@ if (!document._itprofileRefreshHandlerInstalled) {
                 if (status) {
                     QH(
                         'itprofStatus',
-                        'Sending inventory request to MeshCentral server...'
+                        'Sending inventory request to server...'
                     );
                 }
 
@@ -156,7 +156,7 @@ if (!document._itprofileRefreshHandlerInstalled) {
                 if (status) {
                     QH(
                         'itprofStatus',
-                        'Sending inventory request to MeshCentral server...'
+                        'Sending inventory request to server...'
                     );
                 }
 
@@ -165,7 +165,7 @@ if (!document._itprofileRefreshHandlerInstalled) {
             } else {
 
                 throw new Error(
-                    'MeshCentral WebSocket object not found.'
+                    'Server WebSocket object not found.'
                 );
             }
 
