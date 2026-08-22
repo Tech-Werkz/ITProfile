@@ -229,7 +229,7 @@ function doGetInventory(sessionid, nodeid) {
     "foreach ($p in $uninstallPaths) { try { $items = Get-ItemProperty $p -ErrorAction SilentlyContinue; foreach ($i in $items) { if ($i.DisplayName) { $installedRaw += [PSCustomObject]@{ name = [string]$i.DisplayName; version = [string]$i.DisplayVersion } } } } catch {} } ; " +
     "$installedRaw = @($installedRaw | Sort-Object name -Unique); " +
 
-    "$checklist = @('VB Runtime','Symantec','WPS Office','WinASO','Firefox','Fortinet','Windows Media Player','Rustdesk','Foxit Reader','MySQL Connector','Access Database Engine','One Touch','MySQL Connector Net','CRRuntime','7-Zip','HWiNFO','Liteshow','SIDC POS','Koopinoy','SAP','MySQL Server','Google Drive','PCloud','Hamachi'); " +
+    "$checklist = @('7-Zip','AnyDesk','DigitalPersona','Foxit PDF Reader','FortiClient','Google Chrome','Google Drive','Hamachi','HWiNFO','Microsoft Access Database Engine','MySQL Connector','MySQL Connector Net','MySQL Server','MySQL Tools','pCloud','SAP Crystal Reports Runtime','SIDConnect','SmartPSS','Viber','Visual Basic 6(Manual Check)','WhatsApp','Wazuh','WPS','Zoom'); " +
     "$checklistResult = @{}; " +
     "foreach ($item in $checklist) { $found = $installedRaw | Where-Object { $_.name -match [Regex]::Escape($item) } | Select-Object -First 1; $checklistResult[$item] = if ($found) { $found.version } else { $null } } ; " +
 
